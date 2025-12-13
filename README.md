@@ -13,6 +13,8 @@
 
 **AI-powered code review tool for TypeScript developers.** Get instant, intelligent feedback on your code through a CLI tool or automated GitHub Pull Request reviews.
 
+**[Live Demo](https://bugless-psi.vercel.app/)**
+
 ---
 
 ## Table of Contents
