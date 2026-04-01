@@ -21,10 +21,13 @@ model User {
   createdAt  DateTime      @default(now()) @map("created_at")
 
   projects            Project[]
-  subscriptions       Subscription[]
+  apiKeys             ApiKey[]
+  subscription        Subscription?
+  usageMetrics        UsageMetric[]
   submissions         Submission[]
   cliSessions         CliSession[]
   githubInstallations GitHubInstallation[]
+  webSessions         WebSession[]
 
   @@map("user")
 }
@@ -61,44 +64,81 @@ model Project {
   @@map("project")
 }
 
-model StatusPlan {
-  id   String @id @default(ulid())
-  name String @map("name_status_plan")
-  
-  plans Plan[]
-  
-  @@map("status_plan")
-}
-
-model Plan {
-  id                String        @id @default(ulid())
-  name              String        @map("name_plan")
-  price             Decimal       @map("price_plan") @db.Decimal(10, 2)
-  requestPerDay     Int           @map("request_per_day")
-  allowPrivateRepo  Boolean       @default(false) @map("allow_private_repo")
-  privacyMode       Boolean       @default(false) @map("privacy_mode")
-  statusPlanId      String        @map("id_status_plan")
-  
-  statusPlan    StatusPlan    @relation(fields: [statusPlanId], references: [id])
-  subscriptions Subscription[]
-  
-  @@map("plan")
-}
-
 model Subscription {
-  id        String   @id @default(ulid())
-  startDate DateTime @map("start_date")
-  endDate   DateTime? @map("end_date")
-  status    String
-  price     Decimal  @db.Decimal(10, 2)
-  userId    String   @map("id_user")
-  planId    String   @map("id_plan")
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan Plan @relation(fields: [planId], references: [id])
-  
+  id                  String             @id @default(ulid())
+  userId              String             @unique @map("id_user")
+  plan                SubscriptionPlan   @default(FREE)
+  status              SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId    String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?           @unique @map("stripe_subscription_id")
+  stripePriceId       String?            @map("stripe_price_id")
+  currentPeriodStart  DateTime?          @map("current_period_start")
+  currentPeriodEnd    DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd   Boolean            @default(false) @map("cancel_at_period_end")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageMetrics UsageMetric[]
+
   @@map("subscription")
+}
+
+model UsageMetric {
+  id             String   @id @default(ulid())
+  userId         String   @map("id_user")
+  subscriptionId String   @map("id_subscription")
+  periodStart    DateTime @map("period_start")
+  periodEnd      DateTime @map("period_end")
+  reviewsCount   Int      @default(0) @map("reviews_count")
+  reviewsLimit   Int      @map("reviews_limit")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart])
+  @@index([userId, periodStart])
+  @@map("usage_metric")
+}
+
+model ApiKey {
+  id              String     @id @default(ulid())
+  userId          String     @map("id_user")
+  provider        AiProvider @map("provider")
+  encryptedKey    String     @map("encrypted_key")
+  keyName         String?    @map("key_name")
+  isActive        Boolean    @default(true) @map("is_active")
+  isValid         Boolean    @default(true) @map("is_valid")
+  lastValidatedAt DateTime?  @map("last_validated_at")
+  lastUsedAt      DateTime?  @map("last_used_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@index([userId])
+  @@map("api_key")
+}
+
+enum AiProvider {
+  GEMINI
+  OPENAI
+  CLAUDE
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
 }
 
 enum SubmissionModeEnum {
@@ -127,6 +167,8 @@ model Submission {
   id                String            @id @default(ulid())
   codeContent       String            @map("code_content") @db.Text
   submissionMode    SubmissionModeEnum @map("submission_mode")
+  aiProvider        AiProvider?       @map("ai_provider")
+  usedUserKey       Boolean           @default(false) @map("used_user_key")
   createdAt         DateTime          @default(now()) @map("created_at")
   userId            String            @map("user_id")
   projectId         String            @map("project_id")
@@ -189,4 +231,23 @@ model GitHubPullRequest {
 
   @@unique([owner, repo, prNumber])
   @@map("github_pull_requests")
+}
+
+model WebSession {
+  id                String    @id @default(ulid())
+  userId            String    @map("user_id")
+  refreshTokenHash  String    @unique @map("refresh_token_hash")
+  userAgent         String?   @map("user_agent")
+  ipAddress         String?   @map("ip_address")
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  replacedBySessionId String? @map("replaced_by_session_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("web_session")
 }
