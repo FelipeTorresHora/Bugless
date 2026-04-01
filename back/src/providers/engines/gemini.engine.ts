@@ -1,15 +1,22 @@
-import { AIEngineInterface, GenerateOptions } from './ai-engine.interface';
+import { GoogleGenAI } from '@google/genai';
+import { AIEngineConfig, AIEngineInterface, GenerateOptions } from './ai-engine.interface';
 import geminiConfig from '../../config/gemini.config';
 
 export class GeminiEngine implements AIEngineInterface {
   readonly name = 'Gemini-Flash';
   private readonly modelId = 'gemini-2.5-flash';
-  private client = geminiConfig.getClient();
+  private client: GoogleGenAI;
+
+  constructor(config: AIEngineConfig = {}) {
+    this.client = config.apiKey
+      ? new GoogleGenAI({ apiKey: config.apiKey })
+      : geminiConfig.getClient();
+  }
 
   async generateText(prompt: string, options?: GenerateOptions): Promise<string> {
     try {
       const result = await this.client.models.generateContent({
-        model: this.modelId,
+        model: options?.model || this.modelId,
         contents: prompt,
       });
 
@@ -23,7 +30,7 @@ export class GeminiEngine implements AIEngineInterface {
   async generateStream(prompt: string, onChunk: (chunk: string) => void, options?: GenerateOptions): Promise<string> {
     try {
       const resultStream = await this.client.models.generateContentStream({
-        model: this.modelId,
+        model: options?.model || this.modelId,
         contents: prompt,
       });
 

@@ -1,49 +1,46 @@
-import { AIEngineInterface } from './engines/ai-engine.interface';
-import GeminiEngine from './engines/gemini.engine';
+import { AiProvider } from "../generated/prisma/enums";
+import { AIEngineConfig, AIEngineInterface, GenerateOptions } from "./engines/ai-engine.interface";
+import ClaudeEngine from "./engines/claude.engine";
+import GeminiEngine from "./engines/gemini.engine";
+import OpenAIEngine from "./engines/openai.engine";
 
-enum AIEngine {
-  GEMINI = 'gemini',
-}
+type EngineBuilder = (config?: AIEngineConfig) => AIEngineInterface;
 
-// Builders to create the engines
-const ENGINE_BUILDERS: Record<AIEngine, () => AIEngineInterface> = {
-  [AIEngine.GEMINI]: () => new GeminiEngine(),
+const ENGINE_BUILDERS: Record<AiProvider, EngineBuilder> = {
+  [AiProvider.GEMINI]: (config) => new GeminiEngine(config),
+  [AiProvider.OPENAI]: (config) => new OpenAIEngine(config),
+  [AiProvider.CLAUDE]: (config) => new ClaudeEngine(config),
 };
 
-class AIProvider {
-  private static instance: AIProvider;
-  private engine: AIEngineInterface;
-
-  private constructor(engineType: AIEngine) {
-    const builder = ENGINE_BUILDERS[engineType];
-
+class AIProviderFactory {
+  private createEngine(provider: AiProvider, config: AIEngineConfig = {}) {
+    const builder = ENGINE_BUILDERS[provider];
     if (!builder) {
-      throw new Error(`Engine "${engineType}" not configured`);
+      throw new Error(`Provider "${provider}" not configured`);
     }
-
-    this.engine = builder();
+    return builder(config);
   }
 
-  static getInstance(engineType: AIEngine = AIEngine.GEMINI): AIProvider {
-    if (!AIProvider.instance) {
-      AIProvider.instance = new AIProvider(engineType);
-    }
-    return AIProvider.instance;
+  async generateContent(
+    provider: AiProvider,
+    prompt: string,
+    config: AIEngineConfig = {},
+    options?: GenerateOptions
+  ): Promise<string> {
+    const engine = this.createEngine(provider, config);
+    return engine.generateText(prompt, options);
   }
 
-  async generateContent(fullPrompt: string): Promise<string> {
-    return this.engine.generateText(fullPrompt);
-  }
-
-  async generateStream(fullPrompt: string, onChunk: (chunk: string) => void): Promise<string> {
-    if (!this.engine.generateStream) {
-       // Fallback if engine doesn't support streaming, though we know Gemini does
-       const text = await this.engine.generateText(fullPrompt);
-       onChunk(text);
-       return text;
-    }
-    return this.engine.generateStream(fullPrompt, onChunk);
+  async generateStream(
+    provider: AiProvider,
+    prompt: string,
+    onChunk: (chunk: string) => void,
+    config: AIEngineConfig = {},
+    options?: GenerateOptions
+  ): Promise<string> {
+    const engine = this.createEngine(provider, config);
+    return engine.generateStream(prompt, onChunk, options);
   }
 }
 
-export default AIProvider.getInstance();
+export default new AIProviderFactory();
