@@ -1,5 +1,5 @@
 import prisma from "../database/prisma";
-import { CreateReviewSchema } from "../schemas/review.schema";
+import { CreateReviewSchema, ReviewIdRule } from "../schemas/review.schema";
 
 class ReviewService {
     async createReview(data: CreateReviewSchema) {
@@ -17,6 +17,25 @@ class ReviewService {
         }
 
         return review;
+    }
+
+    async getReviewById(reviewId: ReviewIdRule, userId: string) {
+        return prisma.review.findFirst({
+            where: {
+                id: reviewId,
+                submission: {
+                    userId,
+                },
+            },
+            include: {
+                submission: {
+                    include: {
+                        project: true,
+                        statusSubmission: true,
+                    },
+                },
+            },
+        });
     }
 }
 

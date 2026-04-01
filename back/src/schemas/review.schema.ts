@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { submissionIdRule } from "./submission.schema";
+import { ulidRule } from "./common.schema";
 
 export const createReviewSchema = z.object({
     submissionId: submissionIdRule,
@@ -9,4 +10,8 @@ export const createReviewSchema = z.object({
 });
 
 export type CreateReviewSchema = z.infer<typeof createReviewSchema>;
+
+export const reviewIdRule = ulidRule;
+
+export type ReviewIdRule = z.infer<typeof reviewIdRule>;
 

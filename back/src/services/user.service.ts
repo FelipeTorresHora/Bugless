@@ -95,6 +95,33 @@ class UserService {
 
         return user
     }
+
+    async getUserProfileById(id: string) {
+        const user = await prisma.user.findUnique({
+            where: { id },
+            include: {
+                apiKeys: {
+                    where: { isActive: true },
+                    orderBy: { updatedAt: "desc" },
+                    take: 1,
+                },
+                subscription: true,
+            },
+        });
+
+        if (!user) {
+            return null;
+        }
+
+        return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            hasApiKey: user.apiKeys.length > 0,
+            activeProvider: user.apiKeys[0]?.provider ?? null,
+            plan: user.subscription?.plan ?? "FREE",
+        };
+    }
 }
 
 const userService = new UserService();

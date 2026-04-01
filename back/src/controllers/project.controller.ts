@@ -7,6 +7,20 @@ import HttpHelper from "../utils/http-helper";
 import { getUserByIdSchema } from "../schemas/user.schema";
 
 class ProjectController {
+    async listMyProjectsWithStats(req: Request, res: Response) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return HttpHelper.unauthorized(res, "Unauthorized");
+            }
+
+            const projects = await projectService.getProjectsWithStats(userId);
+            return HttpHelper.success(res, projects, "Projects with stats fetched successfully");
+        } catch (error) {
+            console.error("Error fetching projects with stats:", error);
+            return HttpHelper.serverError(res);
+        }
+    }
 
     async createProject(req: Request, res: Response){
         try {

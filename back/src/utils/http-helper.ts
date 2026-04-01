@@ -57,5 +57,12 @@ export class HttpHelper {
             message,
         });
     }
+
+    static forbidden(res: Response, message: string = "Forbidden") {
+        return res.status(403).json({
+            success: false,
+            message,
+        });
+    }
 }
 export default HttpHelper;

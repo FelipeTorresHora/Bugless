@@ -1,7 +1,7 @@
-import { SubmissionModeEnum } from '../generated/prisma/enums';
+import { AiProvider, SubmissionModeEnum } from '../generated/prisma/enums';
 import aiProvider from '../providers/ai.provider';
 
-class AIAPIError extends Error {
+export class AIAPIError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
@@ -19,6 +19,14 @@ export interface AIReviewResult {
   suggestedChanges: string;
   metadata?: Record<string, unknown>;
   rawResponse?: string;
+}
+
+export interface AIExecutionOptions {
+  apiKey?: string;
+  provider?: AiProvider;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 class AIPromptService {
@@ -315,11 +323,12 @@ Now explain the following code:
   async generateAnalysisStream(
     codeContent: string,
     submissionMode: SubmissionModeEnum,
-    onProgress: (chunk: string) => void
+    onProgress: (chunk: string) => void,
+    options: AIExecutionOptions = {}
   ): Promise<AIReviewResult> {
     try {
       const fullPrompt = this.composePrompt(codeContent, submissionMode);
-      const rawResponse = await aiProvider.generateStream(fullPrompt, onProgress);
+      const rawResponse = await this.generateStream(fullPrompt, onProgress, options);
       return this.parseStructuredResponse(rawResponse, submissionMode);
     } catch (error) {
       return this.handleAPIError(error);
@@ -328,11 +337,12 @@ Now explain the following code:
 
   async generateAnalysis(
     codeContent: string,
-    submissionMode: SubmissionModeEnum
+    submissionMode: SubmissionModeEnum,
+    options: AIExecutionOptions = {}
   ): Promise<AIReviewResult> {
     try {
       const fullPrompt = this.composePrompt(codeContent, submissionMode);
-      const rawResponse = await aiProvider.generateContent(fullPrompt);
+      const rawResponse = await this.generateContent(fullPrompt, options);
       return this.parseStructuredResponse(rawResponse, submissionMode);
     } catch (error) {
       return this.handleAPIError(error);
@@ -344,7 +354,8 @@ Now explain the following code:
    */
   async analyzeCode(
     codeContent: string,
-    mode: SubmissionModeEnum = SubmissionModeEnum.PR_DIFF
+    mode: SubmissionModeEnum = SubmissionModeEnum.PR_DIFF,
+    options: AIExecutionOptions = {}
   ): Promise<AIReviewResult> {
     const structuredPrompt = `
 # ROLE
@@ -362,8 +373,44 @@ Responda **exatamente** no seguinte JSON:
 ${codeContent}
 `;
 
-    const rawResponse = await aiProvider.generateContent(structuredPrompt);
+    const rawResponse = await this.generateContent(structuredPrompt, options);
     return this.parseStructuredResponse(rawResponse, mode);
+  }
+
+  private async generateContent(
+    fullPrompt: string,
+    options: AIExecutionOptions
+  ): Promise<string> {
+    const provider = options.provider || AiProvider.GEMINI;
+    return aiProvider.generateContent(
+      provider,
+      fullPrompt,
+      { apiKey: options.apiKey },
+      {
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+      }
+    );
+  }
+
+  private async generateStream(
+    fullPrompt: string,
+    onProgress: (chunk: string) => void,
+    options: AIExecutionOptions
+  ): Promise<string> {
+    const provider = options.provider || AiProvider.GEMINI;
+    return aiProvider.generateStream(
+      provider,
+      fullPrompt,
+      onProgress,
+      { apiKey: options.apiKey },
+      {
+        model: options.model,
+        temperature: options.temperature,
+        maxTokens: options.maxTokens,
+      }
+    );
   }
 
   private composePrompt(
@@ -499,8 +546,9 @@ Additional rules for CUSTOM:
       );
     }
 
-    if (typeof error === 'object' && error !== null && 'statusCode' in error) {
-      const statusCode = (error as any).statusCode;
+    if (typeof error === 'object' && error !== null) {
+      const anyError = error as any;
+      const statusCode = anyError.statusCode ?? anyError.status ?? anyError.response?.status;
 
       if (statusCode === 429) {
         throw new AIAPIError(
