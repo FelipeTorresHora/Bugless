@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { keyof } from "zod";
 
 export enum EventType {
     CONNECTED = "CONNECTED",

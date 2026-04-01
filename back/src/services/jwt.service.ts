@@ -16,8 +16,8 @@ class JwtService {
         this.expiresIn = envLoader.getEnv("JWT_EXPIRES_IN") || "7d";
     }
 
-    generateToken(payload: TokenPayload): string {
-        return jwt.sign(payload, this.secret, { expiresIn: this.expiresIn });
+    generateToken(payload: TokenPayload, expiresIn?: string): string {
+        return jwt.sign(payload, this.secret, { expiresIn: expiresIn || this.expiresIn });
     }
 
     verifyToken(token: string): TokenPayload | null {

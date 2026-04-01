@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
@@ -14,7 +16,7 @@ import {
   XCircle,
 } from '@phosphor-icons/react/dist/ssr'
 
-import type { Review, ReviewMode, ReviewStatus } from '../_lib/mock-data'
+import type { Review, ReviewMode, ReviewStatus } from '@/lib/dashboard-types'
 
 const statusConfig: Record<
   ReviewStatus,
@@ -67,8 +69,9 @@ interface ReviewRowProps {
 export function ReviewRow({ review }: ReviewRowProps) {
   const status = statusConfig[review.status]
   const StatusIcon = status.icon
+  const hasReviewDetail = Boolean(review.reviewId)
 
-  return (
+  const content = (
     <div
       className={cn(
         'group flex items-center gap-4 rounded-lg border border-border bg-surface p-4',
@@ -106,6 +109,11 @@ export function ReviewRow({ review }: ReviewRowProps) {
         <Badge variant='outline' className='capitalize text-xs'>
           {review.preset}
         </Badge>
+        {review.provider && (
+          <Badge variant='outline' className='text-xs'>
+            {review.provider}
+          </Badge>
+        )}
       </div>
 
       <div className='hidden items-center gap-4 text-xs lg:flex'>
@@ -137,5 +145,15 @@ export function ReviewRow({ review }: ReviewRowProps) {
         <div className='mt-1'>{formatDate(review.createdAt)}</div>
       </div>
     </div>
+  )
+
+  if (!hasReviewDetail) {
+    return content
+  }
+
+  return (
+    <Link href={`/dashboard/reviews/${review.reviewId}`} className='block'>
+      {content}
+    </Link>
   )
 }

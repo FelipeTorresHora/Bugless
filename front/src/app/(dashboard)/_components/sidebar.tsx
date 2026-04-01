@@ -4,20 +4,30 @@ import Image from 'next/image'
 import Link from 'next/link'
 
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { SIDEBAR_NAV_ITEMS } from '@/lib/dashboard-navigation'
+import type { DashboardUser } from '@/lib/dashboard-types'
 import { cn } from '@/lib/utils'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react/dist/ssr'
 import { motion } from 'framer-motion'
 
-import { MOCK_USER, SIDEBAR_NAV_ITEMS } from '../_lib/mock-data'
 import { SidebarNav } from './sidebar-nav'
 import { SidebarUser } from './sidebar-user'
 
 interface SidebarProps {
   isCollapsed: boolean
   onToggle: () => void
+  user?: DashboardUser | null
+  onLogout?: () => void
 }
 
-export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
+const FALLBACK_USER: DashboardUser = {
+  id: 'guest',
+  name: 'BugLess User',
+  email: 'Session required',
+  plan: 'FREE',
+}
+
+export function Sidebar({ isCollapsed, onToggle, user, onLogout }: SidebarProps) {
   return (
     <TooltipProvider>
       <motion.aside
@@ -80,7 +90,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         )}
 
         <SidebarNav items={SIDEBAR_NAV_ITEMS} isCollapsed={isCollapsed} />
-        <SidebarUser user={MOCK_USER} isCollapsed={isCollapsed} />
+        <SidebarUser user={user || FALLBACK_USER} isCollapsed={isCollapsed} onLogout={onLogout} />
       </motion.aside>
     </TooltipProvider>
   )

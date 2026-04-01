@@ -1,17 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { dashboardApi, type ProjectStatsResponse, type SubmissionsListResponse } from '@/lib/api'
+import type { ReviewStatus } from '@/lib/dashboard-types'
 import { cn } from '@/lib/utils'
 import { FunnelSimple, MagnifyingGlass } from '@phosphor-icons/react'
 import { motion } from 'framer-motion'
 
 import { PageHeader } from '../../_components/page-header'
 import { ReviewRow } from '../../_components/review-row'
-import { MOCK_REVIEWS, type ReviewStatus } from '../../_lib/mock-data'
 
 type FilterStatus = 'all' | ReviewStatus
+type ProviderFilter = 'all' | 'GEMINI' | 'OPENAI' | 'CLAUDE'
 
 const filterOptions: { value: FilterStatus; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -20,18 +22,100 @@ const filterOptions: { value: FilterStatus; label: string }[] = [
   { value: 'failed', label: 'Failed' },
 ]
 
+const providerOptions: { value: ProviderFilter; label: string }[] = [
+  { value: 'all', label: 'All providers' },
+  { value: 'GEMINI', label: 'Gemini' },
+  { value: 'OPENAI', label: 'OpenAI' },
+  { value: 'CLAUDE', label: 'Claude' },
+]
+
+function mapStatusToBackend(status: FilterStatus): 'PENDING' | 'COMPLETED' | 'FAILED' | undefined {
+  if (status === 'completed') return 'COMPLETED'
+  if (status === 'failed') return 'FAILED'
+  if (status === 'in_progress') return 'PENDING'
+  return undefined
+}
+
 export default function ReviewsPage() {
   const [filter, setFilter] = useState<FilterStatus>('all')
+  const [provider, setProvider] = useState<ProviderFilter>('all')
+  const [projectId, setProjectId] = useState<string>('all')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [response, setResponse] = useState<SubmissionsListResponse>({
+    items: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+  })
+  const [projects, setProjects] = useState<ProjectStatsResponse>([])
 
-  const filteredReviews = MOCK_REVIEWS.filter((review) => {
+  useEffect(() => {
+    let active = true
+
+    async function loadProjects() {
+      const projectsResponse = await dashboardApi.getProjectsStats()
+      if (!active) return
+
+      if (projectsResponse.success && projectsResponse.data) {
+        setProjects(projectsResponse.data)
+      } else {
+        setProjects([])
+      }
+    }
+
+    loadProjects()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+
+    async function loadReviews() {
+      setLoading(true)
+      const reviewsResponse = await dashboardApi.listSubmissions({
+        page,
+        limit: 12,
+        projectId: projectId === 'all' ? undefined : projectId,
+        status: mapStatusToBackend(filter),
+        provider: provider === 'all' ? undefined : provider,
+      })
+
+      if (!active) return
+
+      if (!reviewsResponse.success || !reviewsResponse.data) {
+        setResponse({
+          items: [],
+          pagination: { page: 1, limit: 10, total: 0, totalPages: 1 },
+        })
+        setError(reviewsResponse.message || 'Failed to load review history')
+        setLoading(false)
+        return
+      }
+
+      setResponse(reviewsResponse.data)
+      setError(null)
+      setLoading(false)
+    }
+
+    loadReviews()
+
+    return () => {
+      active = false
+    }
+  }, [filter, page, projectId, provider])
+
+  const filteredReviews = useMemo(() => response.items.filter((review) => {
     const matchesFilter = filter === 'all' || review.status === filter
     const matchesSearch =
       search === '' ||
       review.title.toLowerCase().includes(search.toLowerCase()) ||
       review.repository.toLowerCase().includes(search.toLowerCase())
     return matchesFilter && matchesSearch
-  })
+  }), [filter, response.items, search])
 
   return (
     <>
@@ -67,13 +151,16 @@ export default function ReviewsPage() {
 
         <div className='flex items-center gap-2'>
           <FunnelSimple size={16} className='text-text-muted' />
-          <div className='flex gap-1'>
+          <div className='flex flex-wrap gap-1'>
             {filterOptions.map((option) => (
               <Button
                 key={option.value}
                 variant={filter === option.value ? 'secondary' : 'ghost'}
                 size='sm'
-                onClick={() => setFilter(option.value)}
+                onClick={() => {
+                  setFilter(option.value)
+                  setPage(1)
+                }}
                 className={cn(
                   'h-8 px-3 text-xs',
                   filter === option.value && 'bg-primary/10 text-primary hover:bg-primary/20',
@@ -83,6 +170,35 @@ export default function ReviewsPage() {
               </Button>
             ))}
           </div>
+          <select
+            value={provider}
+            onChange={(event) => {
+              setProvider(event.target.value as ProviderFilter)
+              setPage(1)
+            }}
+            className='h-8 rounded-md border border-input bg-transparent px-2 text-xs'
+          >
+            {providerOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={projectId}
+            onChange={(event) => {
+              setProjectId(event.target.value)
+              setPage(1)
+            }}
+            className='h-8 rounded-md border border-input bg-transparent px-2 text-xs'
+          >
+            <option value='all'>All projects</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
         </div>
       </motion.div>
 
@@ -92,7 +208,15 @@ export default function ReviewsPage() {
         transition={{ duration: 0.4, delay: 0.1 }}
         className='space-y-2'
       >
-        {filteredReviews.length === 0 ? (
+        {loading ? (
+          <div className='flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16'>
+            <p className='text-sm text-text-muted'>Loading review history...</p>
+          </div>
+        ) : error ? (
+          <div className='flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16'>
+            <p className='text-sm text-text-muted'>{error}</p>
+          </div>
+        ) : filteredReviews.length === 0 ? (
           <div className='flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16'>
             <p className='text-sm text-text-muted'>No reviews found</p>
           </div>
@@ -114,14 +238,44 @@ export default function ReviewsPage() {
         )}
       </motion.div>
 
-      {filteredReviews.length > 0 && (
+      {response.pagination.totalPages > 1 && (
+        <div className='mt-4 flex items-center justify-center gap-2'>
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            disabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <p className='text-xs text-text-muted'>
+            Page {response.pagination.page} of {response.pagination.totalPages}
+          </p>
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            disabled={page >= response.pagination.totalPages}
+            onClick={() =>
+              setPage((current) =>
+                Math.min(response.pagination.totalPages, current + 1)
+              )
+            }
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      {!loading && filteredReviews.length > 0 && (
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
           className='mt-4 text-center text-xs text-text-muted'
         >
-          Showing {filteredReviews.length} of {MOCK_REVIEWS.length} reviews
+          Showing {filteredReviews.length} of {response.pagination.total} reviews
         </motion.p>
       )}
     </>

@@ -136,10 +136,52 @@ async function openBrowser(url: string): Promise<void> {
   }
 }
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  hasApiKey: boolean;
+}
+
+/**
+ * Busca o perfil do usuário autenticado no backend.
+ * Retorna null se não autenticado ou token expirado.
+ */
+export async function fetchProfile(): Promise<UserProfile | null> {
+  const token = getToken();
+  if (!token) return null;
+
+  const apiUrl = configService.getApiUrl() || 'http://localhost:3000';
+
+  try {
+    const response = await fetch(`${apiUrl}/users/me`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      // Token inválido/expirado → limpa credenciais locais
+      if (response.status === 401) {
+        logout();
+      }
+      return null;
+    }
+
+    const data = await response.json() as { success: boolean; data?: UserProfile };
+
+    if (!data.success || !data.data) return null;
+
+    return data.data;
+  } catch {
+    return null;
+  }
+}
+
 export const authService = {
   login,
   logout,
   getToken,
   getUser,
   isLoggedIn,
+  fetchProfile,
 };

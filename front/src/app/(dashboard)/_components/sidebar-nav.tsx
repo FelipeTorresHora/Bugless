@@ -20,7 +20,7 @@ import {
   Lock,
 } from '@phosphor-icons/react/dist/ssr'
 
-import type { NavItem } from '../_lib/mock-data'
+import type { NavItem } from '@/lib/dashboard-types'
 
 const iconMap = {
   house: House,
@@ -43,7 +43,10 @@ export function SidebarNav({ items, isCollapsed }: SidebarNavProps) {
     <nav className='flex flex-1 flex-col gap-1 px-3 py-4'>
       {items.map((item) => {
         const Icon = iconMap[item.icon]
-        const isActive = pathname === item.href
+        const isSettingsSection = item.href.startsWith('/dashboard/settings')
+        const isActive =
+          pathname === item.href ||
+          (isSettingsSection && pathname.startsWith('/dashboard/settings'))
         const isDisabled = item.disabled
 
         if (isDisabled) {

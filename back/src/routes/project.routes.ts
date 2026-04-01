@@ -6,6 +6,7 @@ const projectRouter = Router();
 
 projectRouter.post("/", authMiddleware, projectController.createProject);
 projectRouter.post("/find-or-create", authMiddleware, projectController.findOrCreateByRepo);
+projectRouter.get("/me/stats", authMiddleware, projectController.listMyProjectsWithStats);
 
 projectRouter.get("/user/:id", authMiddleware, projectController.listAllProjectsByUserId);
 

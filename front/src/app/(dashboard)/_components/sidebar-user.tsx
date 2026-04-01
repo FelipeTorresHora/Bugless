@@ -11,12 +11,12 @@ import {
 import { cn } from '@/lib/utils'
 import { SignOutIcon } from '@phosphor-icons/react/dist/ssr'
 
-import Link from 'next/link'
-import type { User } from '../_lib/mock-data'
+import type { DashboardUser } from '@/lib/dashboard-types'
 
 interface SidebarUserProps {
-  user: User
+  user: DashboardUser
   isCollapsed: boolean
+  onLogout?: () => void
 }
 
 function getInitials(name: string): string {
@@ -28,11 +28,13 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-function getPlanLabel(plan: User['plan']): string {
-  return plan.charAt(0).toUpperCase() + plan.slice(1)
+function getPlanLabel(plan: string): string {
+  if (plan.toUpperCase() === 'FREE') return 'Free'
+  if (plan.toUpperCase() === 'PRO') return 'Pro'
+  return plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase()
 }
 
-export function SidebarUser({ user, isCollapsed }: SidebarUserProps) {
+export function SidebarUser({ user, isCollapsed, onLogout }: SidebarUserProps) {
   const initials = getInitials(user.name)
 
   const content = (
@@ -78,14 +80,14 @@ export function SidebarUser({ user, isCollapsed }: SidebarUserProps) {
         content
       )}
       {!isCollapsed && (
-        <Link
-          href='/'
+        <button
+          onClick={onLogout}
           className='mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-foreground'
           type='button'
         >
           <SignOutIcon size={18} />
           <span>Sign Out</span>
-        </Link>
+        </button>
       )}
     </div>
   )

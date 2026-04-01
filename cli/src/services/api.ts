@@ -64,6 +64,35 @@ interface SubmissionResponse {
   };
 }
 
+interface BackendErrorResponse {
+  success?: boolean;
+  message?: string;
+  code?: string;
+  data?: {
+    error?: string;
+    code?: string;
+    reviewsCount?: number;
+    reviewsLimit?: number;
+    remainingReviews?: number | null;
+  };
+}
+
+function mapWorkerFailureMessage(code?: string, fallback?: string): string {
+  switch (code) {
+    case 'NO_API_KEY':
+      return 'Nenhuma API Key ativa encontrada. Configure em /dashboard/settings/api-keys.';
+    case 'INVALID_KEY':
+      return 'Sua API Key está inválida ou expirada. Atualize em /dashboard/settings/api-keys.';
+    case 'LIMIT_REACHED':
+    case 'USAGE_LIMIT_REACHED':
+      return 'Você atingiu o limite mensal do plano FREE (10/10).';
+    case 'PROVIDER_ERROR':
+      return fallback || 'Falha do provider de IA durante a revisão.';
+    default:
+      return fallback || 'Review failed.';
+  }
+}
+
 /**
  * Real API client that connects to the backend
  */
@@ -82,13 +111,19 @@ class RealReviewAPI implements ReviewAPI {
     const user = authService.getUser();
 
     if (!token || !user) {
-      throw new Error('Not authenticated. Please run bugless login first.');
+      throw new Error('Not authenticated. Execute bugless para autenticar no navegador.');
     }
 
     log('Buscando/criando projeto...');
     // Get or create project for this repository
     const projectId = await projectService.getOrCreateProject();
     log(`Projeto ID: ${projectId}`);
+
+    if (!diff.raw.trim()) {
+      throw new Error(
+        'O diff do commit veio vazio. Tente outro commit ou revise por branch/uncommitted.'
+      );
+    }
 
     log('Criando submission...');
     // Create submission
@@ -115,8 +150,44 @@ class RealReviewAPI implements ReviewAPI {
     log(`Response status: ${createResponse.status}`);
 
     if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      throw new Error(`Failed to create submission: ${createResponse.status} ${errorText}`);
+      const rawErrorText = await createResponse.text();
+      let backendError: BackendErrorResponse | null = null;
+
+      try {
+        backendError = JSON.parse(rawErrorText) as BackendErrorResponse;
+      } catch {
+        backendError = null;
+      }
+
+      // API Key não configurada → mensagem amigável
+      if (createResponse.status === 403) {
+        throw new Error(
+          'API Key não configurada. Configure sua chave no painel web: /dashboard/settings/api-keys'
+        );
+      }
+
+      // Token expirado/inválido → limpa credenciais e orienta relogin
+      if (createResponse.status === 401) {
+        authService.logout();
+        throw new Error(
+          'Sessão expirada. Execute bugless novamente para fazer login.'
+        );
+      }
+
+      if (createResponse.status === 413) {
+        throw new Error(
+          'Diff muito grande para envio (413). Revise um escopo menor: use bugless -b <branch>, bugless -c <commit> ou divida mudanças em commits menores.'
+        );
+      }
+
+      if (createResponse.status === 429) {
+        const code = backendError?.code || backendError?.data?.code;
+        const message = mapWorkerFailureMessage(code, backendError?.message);
+        throw new Error(message);
+      }
+
+      const backendMessage = backendError?.message || rawErrorText;
+      throw new Error(`Failed to create submission: ${createResponse.status} ${backendMessage}`);
     }
 
     const submission = await createResponse.json() as SubmissionResponse;
@@ -182,10 +253,12 @@ class RealReviewAPI implements ReviewAPI {
             }
 
             if (data.type === 'REVIEW_FAILED') {
-              log(`Review falhou: ${data.data?.error}`);
+              const errorCode = data.data?.code as string | undefined;
+              const normalizedMessage = mapWorkerFailureMessage(errorCode, data.data?.error);
+              log(`Review falhou: ${normalizedMessage}`);
               clearTimeout(timeout);
               eventSource.close();
-              reject(new Error(data.data?.error || 'Review failed'));
+              reject(new Error(normalizedMessage));
             }
 
             // CONNECTED and PROCESSING events are ignored - just waiting

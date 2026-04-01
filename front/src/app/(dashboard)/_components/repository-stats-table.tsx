@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { Bug, GitBranch, Lightning, Shield } from '@phosphor-icons/react/dist/ssr'
 import { motion } from 'framer-motion'
 
-import type { RepoStats } from '../_lib/mock-data'
+import type { RepoStats } from '@/lib/dashboard-types'
 
 interface RepositoryStatsTableProps {
   data: RepoStats[]

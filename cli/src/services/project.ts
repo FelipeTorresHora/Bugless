@@ -52,7 +52,7 @@ export async function getOrCreateProject(): Promise<string> {
   const apiUrl = configService.getApiUrl() || 'http://localhost:3000';
 
   if (!token || !user) {
-    throw new Error('Not authenticated. Please run bugless login first.');
+    throw new Error('Not authenticated. Execute bugless para autenticar no navegador.');
   }
 
   const repoUrl = await gitService.getRemoteUrl();
@@ -77,6 +77,11 @@ export async function getOrCreateProject(): Promise<string> {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      authService.logout();
+      throw new Error('Sessão expirada. Execute bugless novamente para autenticar.');
+    }
+
     const errorText = await response.text();
     throw new Error(`Failed to get/create project: ${response.status} ${errorText}`);
   }

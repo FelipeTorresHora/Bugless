@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { motion } from 'framer-motion'
 
-import type { ActivityDataPoint } from '../_lib/mock-data'
+import type { ActivityDataPoint } from '@/lib/dashboard-types'
 
 interface ActivityChartProps {
   data: ActivityDataPoint[]

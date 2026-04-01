@@ -2,6 +2,7 @@ import prisma from "../database/prisma";
 import { SubmissionModeEnum, StatusSubmissionEnum } from "../generated/prisma/enums";
 import githubService from "./github.service";
 import submissionWorker from "../workers/submission.worker";
+import statusSubmissionService from "./status-submission.service";
 
 interface PullRequestPayload {
   action: string;
@@ -159,9 +160,9 @@ class GitHubWebhookService {
     }
 
     // Create submission
-    const pendingStatus = await prisma.statusSubmission.findFirstOrThrow({
-      where: { name: StatusSubmissionEnum.PENDING },
-    });
+    const pendingStatus = await statusSubmissionService.getOrCreateStatusByName(
+      StatusSubmissionEnum.PENDING
+    );
 
     const submission = await prisma.submission.create({
       data: {
