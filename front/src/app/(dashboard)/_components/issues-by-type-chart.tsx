@@ -13,7 +13,7 @@ import {
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
 
-import type { IssuesByType } from '../_lib/mock-data'
+import type { IssuesByType } from '@/lib/dashboard-types'
 
 interface IssuesByTypeChartProps {
   data: IssuesByType[]

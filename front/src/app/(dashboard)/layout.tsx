@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
+import { authApi, type ProfileResponse } from '@/lib/api'
+import type { DashboardUser } from '@/lib/dashboard-types'
 import { cn } from '@/lib/utils'
 import { List, X } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -16,8 +19,58 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [sessionUser, setSessionUser] = useState<DashboardUser | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    async function bootstrapSession() {
+      setSessionLoading(true)
+      const response = await authApi.bootstrapSession()
+      if (!active) return
+
+      if (!response.success || !response.data) {
+        const nextPath =
+          typeof window !== 'undefined' ? window.location.pathname : '/dashboard'
+        router.replace(`/auth/login?next=${encodeURIComponent(nextPath)}`)
+        setSessionUser(null)
+        setSessionLoading(false)
+        return
+      }
+
+      const profile: ProfileResponse = response.data
+      setSessionUser({
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        plan: profile.plan,
+      })
+      setSessionLoading(false)
+    }
+
+    bootstrapSession()
+
+    return () => {
+      active = false
+    }
+  }, [router])
+
+  const handleLogout = useCallback(async () => {
+    await authApi.sessionLogout()
+    router.replace('/auth/login')
+  }, [router])
+
+  if (sessionLoading) {
+    return (
+      <div className='flex min-h-screen items-center justify-center bg-background'>
+        <p className='text-sm text-text-secondary'>Loading your session...</p>
+      </div>
+    )
+  }
 
   return (
     <div className='min-h-screen bg-background'>
@@ -61,6 +114,8 @@ export default function DashboardLayout({
               className='fixed left-0 top-0 z-50 h-screen w-[280px] lg:hidden'
             >
               <Sidebar
+                user={sessionUser}
+                onLogout={handleLogout}
                 isCollapsed={false}
                 onToggle={() => setIsMobileOpen(false)}
               />
@@ -71,6 +126,8 @@ export default function DashboardLayout({
 
       <div className='hidden lg:block'>
         <Sidebar
+          user={sessionUser}
+          onLogout={handleLogout}
           isCollapsed={isCollapsed}
           onToggle={() => setIsCollapsed(!isCollapsed)}
         />

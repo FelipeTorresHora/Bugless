@@ -12,7 +12,7 @@ export default function AuthErrorPage() {
         Something went wrong. Please try again.
       </p>
       <Link
-        href='/auth/device'
+        href='/auth/login'
         className='inline-block rounded-lg bg-primary px-6 py-2 text-primary-foreground transition-colors hover:bg-primary-hover'
       >
         Try again

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Bug, Lightning, PaintBrush, Shield } from '@phosphor-icons/react/dist/ssr'
 import { motion } from 'framer-motion'
 
-import type { IssueCategory, TopIssue } from '../_lib/mock-data'
+import type { IssueCategory, TopIssue } from '@/lib/dashboard-types'
 
 interface TopIssuesListProps {
   data: TopIssue[]

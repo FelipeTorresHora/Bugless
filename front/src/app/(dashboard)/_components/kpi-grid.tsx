@@ -1,6 +1,6 @@
 'use client'
 
-import type { KpiData } from '../_lib/mock-data'
+import type { KpiData } from '@/lib/dashboard-types'
 import { KpiCard } from './kpi-card'
 
 interface KpiGridProps {

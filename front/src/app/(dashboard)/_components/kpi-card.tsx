@@ -11,7 +11,7 @@ import {
 } from '@phosphor-icons/react/dist/ssr'
 import { motion } from 'framer-motion'
 
-import type { KpiData } from '../_lib/mock-data'
+import type { KpiData } from '@/lib/dashboard-types'
 
 const iconMap = {
   code: Code,
