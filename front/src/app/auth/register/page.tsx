@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -11,7 +12,7 @@ import { authApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { registerSchema, type RegisterFormData } from '@/lib/validations/auth'
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
   const params = useSearchParams()
   const next = params.get('next') || '/dashboard'
@@ -123,5 +124,13 @@ export default function RegisterPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="w-full max-w-md p-6">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   )
 }
