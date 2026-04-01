@@ -113,8 +113,14 @@ export class GitService {
   }
 
   async getCommitDiff(sha: string): Promise<GitDiff> {
-    const diffOutput = await this.git.show([sha, '--format=']);
+    let diffOutput = await this.git.show([sha, '--format=']);
     const diffSummary = await this.git.diffSummary([`${sha}^`, sha]);
+
+    // Some commits (notably merge commits) may return empty patch output via `git show`.
+    // In this case, use an explicit parent-to-commit diff to get the patch content.
+    if (!diffOutput.trim()) {
+      diffOutput = await this.git.diff([`${sha}^`, sha]);
+    }
 
     return this.parseDiff(diffOutput, diffSummary.files as DiffFileEntry[]);
   }

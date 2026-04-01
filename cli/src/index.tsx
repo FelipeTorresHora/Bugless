@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink';
 import meow from 'meow';
 import { App } from './app.js';
+import { Whoami } from './components/index.js';
 import { logout } from './services/auth.js';
 import { configService } from './services/config.js';
 import type { ReviewMode, PresetName } from './types/review.js';
@@ -37,6 +38,7 @@ const cli = meow(
                           Default: uses real backend API
 
   Auth
+    $ bugless whoami                   Show logged-in user and API key status
     $ bugless logout                   Logout and clear stored credentials
 `,
   {
@@ -111,30 +113,39 @@ if (cli.flags.mock) {
   configService.setUseMock(false);
 }
 
-// Handle logout command
-const isLogoutCommand = cli.input[0] === 'logout';
-if (isLogoutCommand) {
-  logout();
-  console.log('Logged out successfully. Run bugless again to login.');
-  process.exit(0);
-}
+// Handle whoami command
+const isWhoamiCommand = cli.input[0] === 'whoami';
+if (isWhoamiCommand) {
+  render(<Whoami />);
+  // O componente Whoami chama exit() internamente após exibir
+} else {
 
-// Handle config command
-const isConfigCommand = cli.input[0] === 'config';
-const configAction = isConfigCommand
-  ? {
+  // Handle logout command
+  const isLogoutCommand = cli.input[0] === 'logout';
+  if (isLogoutCommand) {
+    logout();
+    console.log('Logged out successfully. Run bugless again to login.');
+    process.exit(0);
+  }
+
+  // Handle config command
+  const isConfigCommand = cli.input[0] === 'config';
+  const configAction = isConfigCommand
+    ? {
       apiKey: cli.flags.apiKey,
       apiUrl: cli.flags.apiUrl,
       show: cli.flags.show,
     }
-  : undefined;
+    : undefined;
 
-render(
-  <App
-    mode={mode}
-    baseBranch={cli.flags.branch}
-    commitSha={cli.flags.commit}
-    preset={preset}
-    configAction={configAction}
-  />
-);
+  render(
+    <App
+      mode={mode}
+      baseBranch={cli.flags.branch}
+      commitSha={cli.flags.commit}
+      preset={preset}
+      configAction={configAction}
+    />
+  );
+
+} // fecha o else do whoami

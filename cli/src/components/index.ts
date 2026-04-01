@@ -10,3 +10,4 @@ export { ErrorMessage, NotGitRepoError, NoChangesError } from './error.js';
 export { CommandLog, useCommandExecution } from './command-log.js';
 export { ResultActions } from './result-actions.js';
 export { Login } from './login.js';
+export { Whoami } from './whoami.js';
