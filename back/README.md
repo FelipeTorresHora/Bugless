@@ -74,6 +74,7 @@ npm run dev
 # Server
 PORT=3000
 FRONTEND_URL=http://localhost:3001
+JSON_BODY_LIMIT=10mb
 
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/bugless
